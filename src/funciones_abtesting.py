@@ -36,6 +36,7 @@ def exploracion_datos(df, columna_control):
         print(f"\nLos principales estadísticos de las columnas numéricas para el {categoria} son: ")
         display(dataframe_filtrado.describe().T)
     
+# --------------------ASUNCIONES -----------------------
 
 def test_normalidad(df, columna_grupo, columna_metrica, alpha=0.05, num_iter=5):
     np.random.seed(42)
@@ -92,7 +93,7 @@ def hisplot_grupos(df, columna_grupo, columna_metrica):
     axes= axes.flat
 
     for i,grupo in enumerate(lista_grupos):
-        sns.histplot(df[df[columna_grupo]==grupo], x =columna_metrica, ax=axes[i])
+        sns.histplot(df[df[columna_grupo]==grupo], x =columna_metrica, kde=True, ax=axes[i])
         axes[i].set_xlabel(grupo)
         axes[i].set_ylabel("Recuento")
 
@@ -103,4 +104,58 @@ def hisplot_grupos(df, columna_grupo, columna_metrica):
     plt.show()
 
 
+def test_homoceidad(df, columna_grupo, columna_metrica, test="levene", alpha=0.05):
+    lista_grupos = list(df[columna_grupo].unique())
+    for grupo in lista_grupos:
+        df_metrica = df[df[columna_grupo] == grupo][columna_metrica]
+        globals()[grupo] = df_metrica
+    
+    if test.lower() == "levene":
+        _, pvalor = stats.levene(*[globals()[var] for var in lista_grupos])
+
+    elif test.lower() == "bartlett":
+        _, pvalor = stats.bartlett(*[globals()[var] for var in lista_grupos])
+
+    else:
+        print("Por favor introduzca un tipo de test valido: levene o bartlett")
+        return
+    
+    if pvalor > alpha:
+        print(f"En la variable {columna_metrica} las varianzas son homogéneas entre grupos.")
+    else:
+        print(f"En la variable {columna_metrica} las varianzas NO son homogéneas entre grupos.")
+
+
+# --------------------NO PARAMÉTRICAS -----------------------
+
+def crear_df_grupos (df, col_grupo, col_metrica):
+
+    for valor in df[col_grupo].unique():
+        globals()[valor.lower()] = df[df[col_grupo]==valor][col_metrica]
+
+    return list(df[col_grupo].unique())
+
+
+def elegir_test(valores, dependencia=False):
+
+    if len(valores) > 2:
+        print("Ejecutando Kruskal...")
+        _, pvalor = stats.kruskal(*[globals()[var.lower()] for var in valores])
+
+    elif len(valores)==2 and dependencia==True:
+        print("Ejecutando Wilcoxon...")
+        _, pvalor = stats.wilcoxon(*[globals()[var.lower()] for var in valores])
+
+    elif len(valores)==2 and dependencia==False:
+        print("Ejecutando Mann-Whitney...")
+        _, pvalor = stats.mannwhitneyu(*[globals()[var.lower()] for var in valores])
+
+    else:
+        print("Valores no válidos")
+        return
+    
+    if pvalor < 0.05:
+        print(f"El p-valor es {pvalor}, sí hay diferencías significativas entre los grupos.")
+    else:
+        print(f"El p-valor es {round(pvalor,4)}, NO hay diferencías significativas entre los grupos.")
 
